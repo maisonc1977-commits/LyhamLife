@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Visage de Lyham : cheveux, peau, yeux, joues, sourire, chouchou -->
+    <path android:fillColor="#3B2416" android:pathData="M54,24c-19,0 -28,14 -28,30v28h56V54C82,38 73,24 54,24z"/>
+    <path android:fillColor="#B07150" android:pathData="M54,32c-13,0 -20,10 -20,23c0,13 9,23 20,23s20,-10 20,-23C74,42 67,32 54,32z"/>
+    <path android:fillColor="#3B2416" android:pathData="M34,50c4,-12 14,-17 24,-16c8,1 14,6 16,14c-8,-6 -20,-6 -40,2z"/>
+    <path android:fillColor="#2B1A10" android:pathData="M45,54m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"/>
+    <path android:fillColor="#2B1A10" android:pathData="M63,54m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"/>
+    <path android:fillColor="#F59AAE" android:pathData="M41,62m-3,0a3,2 0,1 1,6 0a3,2 0,1 1,-6 0"/>
+    <path android:fillColor="#F59AAE" android:pathData="M67,62m-3,0a3,2 0,1 1,6 0a3,2 0,1 1,-6 0"/>
+    <path android:fillColor="#C2185B" android:pathData="M48,66q6,6 12,0q-6,3 -12,0z"/>
+    <path android:fillColor="#FF6FA8" android:pathData="M70,36m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0"/>
+</vector>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lyham Life — tests automatiques (smoke)</title>
+<style>body{font-family:system-ui,sans-serif;margin:0;background:#faf6ff;color:#2a1d40}#res{white-space:pre-wrap;padding:10px;font-size:13px}.ok{color:#1b7a3a}.ko{color:#b00020;font-weight:700}#app{max-width:900px;opacity:.35}</style>
+</head>
+<body>
+<h1 style="padding:10px;margin:0">🧪 Lyham Life — tests automatiques</h1>
+<p style="padding:0 10px">Ouvre ce fichier dans Chrome (ou laisse le lanceur automatique le faire). Les résultats s'affichent ci-dessous et dans <code>window.__results</code>. Les tests utilisent une clé de sauvegarde séparée.</p>
+<div id="res">⏳ Tests en cours…</div>
+<!-- Squelette identique à index.html -->
+<div id="app">
+  <header id="topbar"><button type="button" class="tb" id="b-menu">☰</button><div class="info"><span id="t-date"></span><span id="t-heure"></span><span id="t-lieu"></span><span id="t-info"></span></div><button type="button" class="tb" id="b-lisa">💌</button><button type="button" class="tb" id="b-story">📖</button><button type="button" class="tb" id="b-stats">⭐</button><button type="button" class="tb" id="b-mute">🔊</button></header>
+  <section id="gauges"></section>
+  <div id="scenewrap"><canvas id="scene" width="960" height="600" style="width:480px"></canvas><div id="caption"></div></div>
+  <section id="ctrl"><div class="panel"><div id="ztabs"></div><div id="places"></div></div><div class="panel"><div id="actions"></div></div><div class="panel"><div id="people"></div></div></section>
+</div>
+<div id="toast"></div>
+<div id="modal" style="display:none"><div class="mbox"><div class="mhead"><h2 id="mtitle"></h2><button type="button" id="mclose">✕</button></div><div id="mbody"></div></div></div>
+<script>window.__TEST__ = true; try { localStorage.removeItem('lyhamLife_save'); } catch (e) { }</script>
+<script src="../app/src/main/assets/data.js" defer></script>
+<script src="../app/src/main/assets/lieux.js" defer></script>
+<script src="../app/src/main/assets/sons.js" defer></script>
+<script src="../app/src/main/assets/quiz.js" defer></script>
+<script src="../app/src/main/assets/prononciation.js" defer></script>
+<script src="../app/src/main/assets/lisa.js" defer></script>
+<script src="../app/src/main/assets/histoire.js" defer></script>
+<script src="../app/src/main/assets/actions.js" defer></script>
+<script src="../app/src/main/assets/monde.js" defer></script>
+<script src="../app/src/main/assets/ui.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  var R = window.__results = { tests: [], done: false, pass: 0, fail: 0 };
+  function rec(name, ok, detail) { R.tests.push({ name: name, ok: !!ok, detail: detail || '' }); if (ok) R.pass++; else R.fail++; }
+  function t(name, fn) { try { var r = fn(); rec(name, r === true || r === undefined || (r && r.ok), r && r.detail ? r.detail : (typeof r === 'string' ? r : '')); } catch (e) { rec(name, false, 'EXCEPTION : ' + (e && e.stack || e)); } }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function deepNum(o, path, bad) { if (typeof o === 'number') { if (!isFinite(o)) bad.push(path); return; } if (o && typeof o === 'object') Object.keys(o).forEach(function (k) { deepNum(o[k], path + '.' + k, bad); }); }
+  function setTime(LL, iso, min) { LL.S.day = LL.di(iso); LL.S.min = min; }
+  async function run() {
+    var LL = window.LyhamLife; while (!LL || !LL.ready) { await wait(50); LL = window.LyhamLife; }
+    var M = LL.M; M.instant = true; LL.ui.sceneOpen = function () { return true; }; // pas de lecture automatique des scènes pendant les tests
+    LL.audioUnlock();
+    /* 11. Smoke : scripts chargés et API publiques */
+    t('API publiques présentes (render, go, act, pass, add, xp, log, save, load)', function () { var miss = ['render', 'go', 'act', 'pass', 'add', 'xp', 'log', 'save', 'load', 'son', 'ambiance', 'musique', 'stopMusique', 'drawPerson', 'drawTVScreen'].filter(function (k) { return typeof LL[k] !== 'function'; }); return { ok: !miss.length, detail: miss.join(',') }; });
+    t('Callbacks Android exposés sur window', function () { var miss = ['onPauseJeu', 'onRepriseJeu', 'onEcoutePrete', 'onEcouteResultat', 'onEcouteErreur'].filter(function (k) { return typeof window[k] !== 'function'; }); return { ok: !miss.length, detail: miss.join(',') }; });
+    t('Tous les modules ont chargé leurs données', function () { return !!(LL.PLACES && LL.ACTS && LL.QUIZ && LL.PRONO && LL.LETTRES && LL.STORY && LL.M && LL.ui && LL.BAC_REVISION); });
+    t('Aucun bouton visible sans action', function () { LL.render(); var known = ['b-menu', 'b-story', 'b-lisa', 'b-stats', 'b-mute', 'mclose']; var bad = []; document.querySelectorAll('#app button').forEach(function (b) { var d = b.dataset; if (!(d.go || d.zone || d.act != null || d.person || d.cat || known.indexOf(b.id) >= 0)) bad.push(b.textContent); }); return { ok: !bad.length, detail: bad.join(' | ') }; });
+    /* 2. Chaque lieu visité, chaque action lancée */
+    var actCount = 0, forced = [], places = Object.keys(LL.PLACES);
+    t('Visite de chaque lieu (' + places.length + ') et lancement de chaque action', function () {
+      var errs = [];
+      places.forEach(function (p) {
+        setTime(LL, '2026-10-06', 1080); // mardi 18 h (danse ouverte)
+        if (LL.ZONES.ecole.indexOf(p) >= 0) LL.S.min = 600;
+        if (p === 'plage' || p === 'chez_daryl' || p === 'marche') { setTime(LL, '2026-10-03', 600); }
+        LL.S.g = { faim: 50, energie: 50, fun: 50, social: 50, hygiene: 50 }; LL.S.money = 100; LL.S.inv = { cupcake: 3, fruit: 2, graines: 2 };
+        LL.go(p, true); if (LL.S.place !== p) errs.push('lieu ' + p);
+        (LL.ACTS[p] || []).forEach(function (a, i) {
+          var c = a[2], ok; try { ok = c(LL.S); } catch (e) { ok = 'exc'; }
+          if (ok !== true) { forced.push(p + ' / ' + a[0]); a[2] = function () { return true; }; }
+          LL.S.daily = {}; M.anim = null; M.dialogBusy = false;
+          try { var r = LL.act(i, a[3] && a[3].ask === 'tv' ? 6 : a[3] && a[3].ask === 'recette' ? 'crepes' : undefined); if (!r) errs.push(p + ' / ' + a[0] + ' : refusée'); actCount++; } catch (e) { errs.push(p + ' / ' + a[0] + ' : ' + e.message); }
+          a[2] = c; LL.ui.close(); if (LL.S.place !== p) LL.go(p, true);
+        });
+      });
+      return { ok: !errs.length && !LL.errors.length, detail: actCount + ' actions lancées ; conditions forcées pour tester l\'effet hors contexte : ' + forced.length + (errs.length ? ' ; ERREURS : ' + errs.join(' ; ') : '') + (LL.errors.length ? ' ; erreurs JS : ' + LL.errors.join(' ; ') : '') };
+    });
+    t('Interactions avec chaque personnage présent (tous les types de KINDS)', function () {
+      var n = 0, errs = []; [['salon', '2026-10-03', 1260], ['cuisine', '2026-10-05', 740], ['cour', '2026-10-05', 600], ['danse', '2026-10-06', 1080], ['salle_maths', '2026-10-05', 600], ['jardin', '2026-10-03', 900], ['parc', '2026-10-03', 900]].forEach(function (c) {
+        setTime(LL, c[1], c[2]); LL.S.inv.cupcake = 5; LL.go(c[0], true);
+        M.npcs.slice().forEach(function (np) { LL.kindsFor(np.id).forEach(function (k) { if (k.ok !== true) return; M.dialogBusy = false; M.anim = null; try { LL.interact(np.id, k.k); n++; } catch (e) { errs.push(np.id + '/' + k.k + ' : ' + e.message); } LL.ui.close(); if (LL.S.place !== c[0]) LL.go(c[0], true); }); });
+      }); return { ok: !errs.length && n > 30, detail: n + ' interactions' + (errs.length ? ' ; ' + errs.join(' ; ') : '') };
+    });
+    /* 10. Emploi du temps de papa */
+    t('Emploi du temps de papa (bureau en semaine, cuisine aux repas)', function () {
+      var chk = [['2026-10-05', 600, 'bureau'], ['2026-10-05', 900, 'bureau'], ['2026-10-05', 740, 'cuisine'], ['2026-10-05', 1150, 'cuisine'], ['2026-10-05', 1230, 'salon'], ['2026-10-10', 600, '!bureau'], ['2026-10-10', 740, 'cuisine']], bad = [];
+      chk.forEach(function (c) { setTime(LL, c[0], c[1]); var neg = c[2][0] === '!', lieu = c[2].replace('!', ''), here = LL.presence(lieu).indexOf('casimir') >= 0; if (here === neg) bad.push(c.join(' ')); });
+      setTime(LL, '2026-10-05', 620); var visio = LL.papaEnVisio(); setTime(LL, '2026-10-05', 650); var pause = LL.papaEnPause();
+      return { ok: !bad.length && visio && pause, detail: bad.join(' ; ') + ' visio(10h20)=' + visio + ' pause(10h50)=' + pause };
+    });
+    t('Message explicite « papa en visio » et « danse le mardi soir »', function () { setTime(LL, '2026-10-05', 620); LL.go('bureau', true); var i = LL.findAct('café'), m = LL.ACTS.bureau[i][2](LL.S); setTime(LL, '2026-10-07', 1080); var d = LL.UNLOCK.danse(LL.S); return { ok: /visio/.test(m) && /mardi soir/.test(d), detail: m + ' | ' + d }; });
+    /* 8. Audio */
+    t('Chaque effet sonore joue sans erreur', function () { var names = Object.keys(LL.audio.SFX), bad = []; names.forEach(function (n) { if (!LL.son(n)) bad.push(n); }); ['note_60', 'guitare_64', 'voix_casimir', 'voix_lyham'].forEach(function (n) { if (!LL.son(n)) bad.push(n); }); return { ok: !bad.length && !LL.audio.lastErr, detail: names.length + ' sons ; échecs : ' + bad.join(',') + ' ' + (LL.audio.lastErr || '') }; });
+    t('Chaque style musical joue sans erreur', function () { var st = Object.keys(LL.audio.STYLES).concat(['playlist']), bad = []; st.forEach(function (s) { if (!LL.musique(s)) bad.push(s); LL.audioTick(); LL.audioTick(); }); return { ok: !bad.length && !LL.audio.lastErr, detail: st.join(', ') }; });
+    t('La musique s\'arrête en quittant la chambre et en dormant', function () { setTime(LL, '2026-10-03', 600); LL.go('chambre', true); LL.musique('chill'); var a = LL.audio.musicStyle; LL.go('salon', true); var b = LL.audio.musicStyle; LL.go('chambre', true); LL.musique('pop'); LL.S.min = 1300; LL.sleep(false); return { ok: a === 'chill' && b === null && LL.audio.musicStyle === null }; });
+    LL.S.settings.muted = false; LL.audioVolumes(); await wait(150);
+    var g1 = LL.audio.gainNow(); LL.toggleMute(); await wait(300); var g2 = LL.audio.gainNow(); LL.toggleMute(); await wait(100);
+    rec('🔇 coupe tout le son (gain maître → 0)', g1 > 0.5 && g2 < 0.01, 'gain avant=' + g1.toFixed(2) + ' après=' + g2.toFixed(3));
+    t('Ambiances par lieu sans erreur', function () { ['jardin', 'parc', 'cour', 'plage', 'cafe', 'bureau', 'piscine'].forEach(function (l) { LL.ambiance(l); LL.audioTick(); }); return !LL.audio.lastErr; });
+    t('Pause / reprise en arrière-plan (onPauseJeu / onRepriseJeu)', function () { window.onPauseJeu(); var p = LL.audio.paused; window.onRepriseJeu(); return p === true && !LL.audio.paused; });
+    /* 9. Prononciation */
+    t('Prononciation : score avec texte reconnu simulé (pont Android simulé)', function () {
+      var calls = []; function rien() { return undefined; } window.AndroidVoix = { voixDispo: function () { return true; }, ecouteDispo: function () { return true; }, parler: function (t, v) { calls.push(['parler', t, v]); }, ecouter: function () { calls.push(['ecouter']); }, arreterEcoute: function () { calls.push(['stop']); } };
+      var res = null; LL.PRONO.ecouter('think', true); LL.PRONO.repeter(rien, function (l) { res = LL.PRONO.score('three', l); }, function () { res = 'err'; });
+      window.onEcoutePrete(); window.onEcouteResultat(['tree', 'free']);
+      var ok = res && res.stars < 3 && res.marks.indexOf(false) >= 0 && calls[0][0] === 'parler' && calls[0][2] === 0.6 && calls.some(function (c) { return c[0] === 'stop'; });
+      var r2 = null; LL.PRONO.repeter(rien, function (l) { r2 = LL.PRONO.score('three', l); }, rien); window.onEcouteResultat(['three']);
+      delete window.AndroidVoix; return { ok: ok && r2.stars === 3, detail: 'tree→' + (res && res.stars) + '★ (' + (res && res.advice) + ') ; three→' + (r2 && r2.stars) + '★ ; micro arrêté après le résultat' };
+    });
+    t('Prononciation : refus du micro → bascule en auto-évaluation', function () { function rien() { return undefined; } window.AndroidVoix = { voixDispo: function () { return false; }, ecouteDispo: function () { return true; }, parler: rien, ecouter: rien, arreterEcoute: rien }; var code = null; LL.PRONO.repeter(rien, rien, function (c) { code = c; }); window.onEcouteErreur(9); var after = LL.PRONO.ecouteDispo(); delete window.AndroidVoix; var gain = LL.PRONO.autoEval('pr1', 'moyen'); delete LL.S.flags.micRefuse; return { ok: code === 9 && after === null && gain >= 1, detail: 'code=' + code + ' ecouteDispo après refus=' + after }; });
+    t('Prononciation : sans micro ni reconnaissance → auto-évaluation proposée', function () { var saved = window.webkitSpeechRecognition, saved2 = window.SpeechRecognition; window.webkitSpeechRecognition = undefined; window.SpeechRecognition = undefined; LL.ui.open('prono'); var ex = document.querySelector('#mbody details .mbtn'); ex.click(); var txt = document.getElementById('mbody').textContent; LL.ui.close(); window.webkitSpeechRecognition = saved; window.SpeechRecognition = saved2; return { ok: /Facile/.test(txt) && /Moyen/.test(txt) && /Difficile/.test(txt) }; });
+    t('XP de prononciation non infini (un exercice refait rapporte peu)', function () { var a = LL.PRONO.valider('pr5', 3), b = LL.PRONO.valider('pr5', 3); return { ok: a >= 4 && b === 1, detail: a + ' puis ' + b }; });
+    /* Quiz */
+    t('Quiz : pas de répétition immédiate entre deux séries', function () { setTime(LL, '2028-10-01', 600); var a = LL.quizPick('ma', 5); a.forEach(function (q) { LL.quizAnswer(q, q.a); }); var b = LL.quizPick('ma', 5), inter = a.filter(function (q) { return b.indexOf(q) >= 0; }); return { ok: !inter.length && a.length === 5, detail: 'recoupement : ' + inter.length }; });
+    t('Quiz : correction affichée si mauvaise réponse', function () { LL.ui.open('quiz', 'hg'); var bs = document.querySelectorAll('#mbody .grid1 .mbtn'), q = null; for (var i = 0; i < bs.length; i++) { if (!/good/.test(bs[i].className)) { bs[i].click(); break; } } var txt = document.getElementById('mbody').textContent; LL.ui.close(); return { ok: /bonne réponse était|Bravo/.test(txt) }; });
+    /* 5. Révisions du bac */
+    t('Révisions du bac : 14 journées, 3 matières/jour, ≥ 126 activités', function () { var d = LL.BAC_REVISION.days, n = 0, ok = d.length === 14; d.forEach(function (x) { var it = LL.bacDayItems(x.day); n += it.length; ['philo', 'anglais', 'maths'].forEach(function (m) { if (it.filter(function (a) { return a.mat === m; }).length < 3) ok = false; }); }); return { ok: ok && n >= 126, detail: n + ' activités' }; });
+    t('Révisions du bac : corrections objectives + XP non infini + jauges', function () {
+      setTime(LL, '2031-06-02', 600); LL.go('chambre', true); var B = LL.S.bacRevision, before = JSON.stringify(B.prep), xpLog = [];
+      LL.BAC_REVISION.days.forEach(function (day) { LL.bacDayItems(day.day).forEach(function (it) { var p = it.kind === 'qcm' ? it.answer : it.kind === 'num' ? String(it.answer).replace('.', ',') : it.kind === 'open' ? { checked: it.criteria.map(function () { return true; }) } : { stars: it.refs.map(function () { return 3; }) }; var r = LL.bacSubmit(it, p, 'chambre'); if (!r.ok) xpLog.push('ÉCHEC ' + it.id); }); });
+      var it0 = LL.bacDayItems(2)[0], r1 = LL.bacSubmit(it0, it0.answer, 'chambre'); var wrong = LL.bacSubmit(LL.bacDayItems(3)[0], (LL.bacDayItems(3)[0].answer + 1) % 4, 'chambre');
+      var numIt = LL.bacItem('bac_d03_ma_2'), rn = LL.gradeItem(numIt, '520,2'), rn2 = LL.gradeItem(numIt, '520');
+      return { ok: !xpLog.length && r1.xp <= Math.ceil(it0.xp / 4) && !wrong.ok && rn.ok && !rn2.ok && JSON.stringify(B.prep) !== before && B.errors.length >= 1, detail: 'XP refait=' + r1.xp + ' ; prep=' + JSON.stringify(B.prep) + ' ; confiance=' + B.confiance + ' ; ' + xpLog.join(',') };
+    });
+    t('Révisions du bac : sauvegarde en milieu de journée (brouillon conservé)', function () { var B = LL.S.bacRevision; B.current = { id: 'bac_d05_ph_2', draft: 'Thèse : la liberté naturelle…' }; LL.save(); LL.S = LL.newState(); LL.load(); return { ok: LL.S.bacRevision.current && LL.S.bacRevision.current.draft === 'Thèse : la liberté naturelle…' }; });
+    t('Révisions du bac : bilans jours 7 et 14 + plan personnalisé', function () { setTime(LL, '2031-06-15', 600); LL.ui.open('bac', 7); var b7 = Array.prototype.filter.call(document.querySelectorAll('#mbody button'), function (b) { return /Bilan de la journée 7/.test(b.textContent); })[0]; b7.click(); var t7 = document.getElementById('mbody').textContent; LL.ui.open('bac', 14); var b14 = Array.prototype.filter.call(document.querySelectorAll('#mbody button'), function (b) { return /Bilan de la journée 14/.test(b.textContent); })[0]; b14.click(); var t14 = document.getElementById('mbody').textContent; LL.ui.close(); return { ok: /Mi-parcours/.test(t7) && /contrôle continu/.test(t14), detail: LL.bacPlan() }; });
+    t('Révisions du bac : prononciation + repli auto-évaluation dans une activité', function () { var it = LL.bacItem('bac_d11_an_1'); LL.ui.renderExercise(document.getElementById('mbody'), it, function (p) { return LL.bacSubmit(it, p, 'chambre'); }); var txt = document.getElementById('mbody').textContent; return { ok: /auto-évaluation/.test(txt) }; });
+    var chrIt = JSON.parse(JSON.stringify(LL.bacItem('bac_d02_ph_3'))); chrIt.timer = 1; document.getElementById('modal').classList.add('on');
+    LL.ui.renderExercise(document.getElementById('mbody'), chrIt, function (p) { return LL.gradeItem(chrIt, p); }); await wait(1700);
+    rec('Révisions du bac : chronomètre qui valide automatiquement à la fin', /Temps écoulé|À retravailler|Réussi/.test(document.getElementById('mbody').textContent)); LL.ui.close();
+    t('Transition vers le bac : veille, épreuve, conclusion', function () { setTime(LL, '2031-06-16', 600); LL.S.events = {}; LL.checkStory(); var a = LL.storyStatus('fin_bac'), v = LL.storyStatus('fin_veille'); LL.applyChoice(LL.storyById('fin_veille'), 0); LL.applyChoice(LL.storyById('fin_bac'), 0); var c = LL.conclusion(); return { ok: a === 'available' && v === 'available' && LL.S.flags.bacPasse && c.length >= 6 && LL.S.outfits.indexOf('toge') >= 0, detail: c[0] }; });
+    /* Semaine du brevet */
+    t('Semaine du brevet : 7 jours, corrections objectives', function () { setTime(LL, '2028-06-21', 600); var ok = LL.brevetDay() === 3 && LL.inBrevetWeek(LL.S.day); LL.BREVET.forEach(function (b) { var p = b.kind === 'qcm' ? b.answer : b.kind === 'num' ? String(b.answer) : { checked: b.criteria.map(function () { return true; }) }; if (!LL.brevetSubmit(b, p).ok) ok = false; }); return ok; });
+    /* Lettres de Lisa */
+    t('Lettres de Lisa : réception hebdomadaire + réponse + conséquence', function () { setTime(LL, '2027-09-20', 1000); var n = LL.lettresRecues(); var r = LL.repondreLisa(1, 0); var again = LL.repondreLisa(1, 1); return { ok: n === 3 && r && LL.S.flags.lisa_moka && again === null, detail: n + ' lettres reçues au 20/09/2027' }; });
+    /* 13. Limites */
+    t('Limites : jauges bornées 0–100', function () { LL.add({ faim: -500, fun: 500 }); var a = LL.S.g.faim === 0 && LL.S.g.fun === 100; LL.S.g.faim = 50; LL.S.g.fun = 50; return a; });
+    t('Limites : 0 pièce → achat refusé, inventaire vide → cupcake refusé', function () { LL.S.money = 0; var a = LL.money(-5) === false && LL.S.money === 0; LL.S.inv = {}; var k = LL.M.KINDS.cupcake.ok('cataleya'); return { ok: a && k !== true, detail: k }; });
+    t('Limites : minuit → nouveau jour et coucher forcé', function () { setTime(LL, '2026-10-05', 1430); var d0 = LL.S.day; LL.pass(30); return { ok: LL.S.day === d0 + 1 && LL.S.min >= 420 && LL.S.place === 'chambre', detail: LL.dateTxt(LL.S.day) + ' ' + LL.hhmm(LL.S.min) }; });
+    t('Limites : passage de classe (4e → 3e)', function () { setTime(LL, '2027-09-01', 1300); LL.S.journal = []; LL.newDay(); return { ok: LL.niveau(LL.S.day) === '3e' && LL.S.journal.some(function (j) { return /3e/.test(j.t); }) }; });
+    t('Limites : anniversaire de Lyham (scènes disponibles le 11/01)', function () { setTime(LL, '2027-01-11', 900); LL.S.events = {}; LL.checkStory(); return ['prep', 'jour'].every(function (k) { return LL.storyStatus('anniv_lyham_2027_' + k) === 'available'; }); });
+    t('Limites : visite mensuelle de Daryl', function () { setTime(LL, '2027-02-06', 760); LL.go('salon', true); LL.S.events = {}; LL.checkStory(); var ids = Object.keys(LL.S.events).filter(function (k) { return /^daryl_2027_2$/.test(k); }); var here = LL.presence('cuisine').indexOf('daryl') >= 0 || LL.presence('salon').indexOf('daryl') >= 0; var sc = LL.storyById(ids[0]); LL.applyChoice(sc, 0); return { ok: ids.length === 1 && here && LL.S.darylVisits >= 1, detail: ids.join(',') }; });
+    t('Limites : vacances → collège fermé avec message', function () { setTime(LL, '2026-10-20', 600); var r = LL.canGo('cour'); return { ok: r !== true && /vacances|fermé/.test(r), detail: r }; });
+    t('Limites : sauvegarde corrompue → nouvelle partie sans plantage', function () { localStorage.setItem(LL.SAVE_KEY, '{oups'); var r = LL.load(); return r === false && LL.S.day === 0; });
+    t('Migration d\'une sauvegarde v1 (jauges à plat, « argent »)', function () { var v1 = { saveVersion: 1, day: 12, min: 600, place: 'salon', faim: 33, energie: 120, argent: 42 }; var s = LL.migrate(v1); return { ok: s.g.faim === 33 && s.g.energie === 100 && s.money === 42 && s.saveVersion === LL.SAVE_VERSION && s.bacRevision && s.place === 'salon' }; });
+    /* 12. Sauvegarde → rechargement */
+    t('Sauvegarde → rechargement : état identique', function () { LL.S = LL.newState(); setTime(LL, '2027-03-10', 845); LL.S.place = 'jardin'; LL.S.money = 37; LL.S.rel.elynn = 88; LL.S.skills.danse = 140; LL.S.inv = { cupcake: 2, fleurs: 1 }; LL.S.events.ami_ep1 = 'done'; LL.S.settings.mus = 0.3; LL.S.settings.muted = true; LL.S.g.faim = 12.5; LL.save(); var snap = JSON.stringify(LL.S); LL.S = LL.newState(); LL.load(); var back = JSON.stringify(LL.S); return { ok: snap === back, detail: snap.length + ' octets' }; });
+    LL.S.settings.muted = false; LL.audioVolumes();
+    /* 3. Simulation automatique de 400 jours */
+    var t0 = Date.now(), sim = { actions: 0, scenes: 0, interactions: 0, letters: 0, maxErr: null }, bad = [];
+    LL.S = LL.newState(); LL.go('chambre', true);
+    var rnd = LL.K.seeded(2026); function pick(a) { return a[Math.floor(rnd() * a.length)]; }
+    for (var day = 0; day < 400; day++) {
+      var start = LL.S.day, guard = 0;
+      while (LL.S.day === start && guard++ < 14) {
+        if (LL.S.min >= 1290) break;
+        var accessible = Object.keys(LL.PLACES).filter(function (p) { return LL.canGo(p) === true; }); if (rnd() < 0.5) LL.go(pick(accessible));
+        var acts = LL.actsHere().filter(function (a) { return a.ok === true && !(a.meta && (a.meta.ui || a.meta.id === 'chambre_dormir')); });
+        if (acts.length) { var a = pick(acts); M.anim = null; M.dialogBusy = false; LL.act(a.i, a.meta.ask === 'tv' ? 1 + Math.floor(rnd() * 9) : a.meta.ask ? pick(['pates', 'omelette', 'crepes', 'patisserie']) : undefined); sim.actions++; LL.ui.close(); }
+        if (M.npcs.length && rnd() < 0.4) { var np = pick(M.npcs), ks = LL.kindsFor(np.id).filter(function (k) { return k.ok === true; }); if (ks.length) { M.dialogBusy = false; LL.interact(np.id, pick(ks).k); sim.interactions++; LL.ui.close(); } }
+        if (rnd() < 0.2) { var qs = LL.quizPick(null, 3); qs.forEach(function (q) { LL.quizAnswer(q, Math.floor(rnd() * 4)); }); }
+        LL.checkStory(); LL.availableScenes().forEach(function (s) { LL.applyChoice(s, Math.floor(rnd() * s.choices.length)); sim.scenes++; });
+        Object.keys(LL.S.events).filter(function (k) { return k.indexOf('daryl_') === 0 && LL.S.events[k] === 'available'; }).forEach(function (k) { LL.applyChoice(LL.storyById(k), 0); sim.scenes++; });
+      }
+      var nl = LL.lettresRecues(); for (var k = 1; k <= nl; k++) if (LL.S.lisa.replies['lisa_' + k] == null) { LL.repondreLisa(k, Math.floor(rnd() * 3)); sim.letters++; }
+      if (LL.S.day === start) { LL.go('chambre', true); LL.S.min = Math.max(LL.S.min, 1260); LL.sleep(false); }
+      var nan = []; deepNum(LL.S, 'S', nan); LL.GAUGES.forEach(function (g) { var v = LL.S.g[g]; if (!(v >= 0 && v <= 100)) bad.push('jour ' + day + ' jauge ' + g + '=' + v); }); Object.keys(LL.S.rel).forEach(function (r) { if (!(LL.S.rel[r] >= 0 && LL.S.rel[r] <= 100)) bad.push('lien ' + r); });
+      if (nan.length) bad.push('jour ' + day + ' NaN : ' + nan.join(',')); if (bad.length > 5) break;
+    }
+    rec('Simulation de 400 jours : aucune exception, jauges 0–100, aucun NaN', !bad.length && !LL.errors.length && LL.S.day >= 400, 'jours=' + LL.S.day + ' (' + LL.dateTxt(LL.S.day) + ', ' + LL.niveau(LL.S.day) + ') ; actions=' + sim.actions + ' ; interactions=' + sim.interactions + ' ; scènes=' + sim.scenes + ' ; lettres=' + sim.letters + ' ; durée ' + Math.round((Date.now() - t0) / 1000) + ' s' + (bad.length ? ' ; ' + bad.slice(0, 5).join(' ; ') : '') + (LL.errors.length ? ' ; erreurs : ' + LL.errors.slice(0, 3).join(' ; ') : ''));
+    rec('Aucune erreur JavaScript capturée pendant les tests', !LL.errors.length, LL.errors.join(' ; '));
+    R.done = true; try { localStorage.removeItem(LL.SAVE_KEY); } catch (e) { }
+    var out = document.getElementById('res'); out.innerHTML = '<b>' + R.pass + ' réussis, ' + R.fail + ' échoués</b>\n\n' + R.tests.map(function (x) { return '<span class="' + (x.ok ? 'ok' : 'ko') + '">' + (x.ok ? '✅' : '❌') + ' ' + x.name + '</span>' + (x.detail ? '\n    ' + x.detail.replace(/</g, '&lt;') : ''); }).join('\n');
+  }
+  document.addEventListener('DOMContentLoaded', function () { setTimeout(function () { run().catch(function (e) { rec('Lanceur', false, String(e && e.stack || e)); R.done = true; document.getElementById('res').textContent = 'ERREUR : ' + e; }); }, 300); });
+})();
+</script>
+</body>
+</html>

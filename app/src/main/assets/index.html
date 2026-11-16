@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'">
+<title>Lyham Life</title>
+<style>
+:root{--ts:1;--pink:#ff6fa8;--pink2:#ffd1e6;--violet:#7b3fd1;--violet2:#efe4ff;--ink:#3a2350;--bg:#fff5fb}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:linear-gradient(160deg,#ffe3f1,#ece2ff);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:calc(15px*var(--ts));min-height:100%}
+#app{max-width:1100px;margin:0 auto;padding:6px;display:grid;gap:6px;grid-template-columns:1fr;grid-template-areas:"top" "gauges" "scene" "ctrl"}
+#topbar{grid-area:top;display:flex;align-items:center;gap:6px;background:linear-gradient(90deg,#8e44d6,#ff6fa8);color:#fff;border-radius:16px;padding:6px 8px;box-shadow:0 3px 10px rgba(120,40,160,.25)}
+#topbar .info{flex:1;min-width:0;line-height:1.2}
+#t-date{font-weight:700;font-size:1em}#t-heure{font-weight:800;font-size:1.25em;margin-left:6px}
+#t-lieu,#t-info{font-size:.85em;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.tb{min-width:44px;min-height:44px;border:0;border-radius:12px;background:rgba(255,255,255,.22);color:#fff;font-size:1.15em;cursor:pointer}
+.tb:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #ffd166;outline-offset:2px}
+.pulse{animation:pulse 1.4s infinite}@keyframes pulse{50%{transform:scale(1.12)}}
+body.reduce .pulse{animation:none}
+#gauges{grid-area:gauges;display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.gauge{position:relative;background:#fff;border-radius:10px;padding:4px 6px;overflow:hidden;box-shadow:0 1px 4px rgba(120,40,160,.15);display:flex;justify-content:space-between;align-items:center;gap:4px;min-height:34px}
+.gauge span{font-size:.78em;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gauge b{z-index:1;font-size:.9em}
+.gauge i{position:absolute;left:0;bottom:0;height:5px;background:linear-gradient(90deg,var(--pink),var(--violet));border-radius:0 3px 3px 0;transition:width .4s}
+.gauge.low{background:#ffe1e1}.gauge.low b::after{content:" ⚠️"}
+#scenewrap{grid-area:scene;align-self:start;position:relative;border-radius:18px;overflow:hidden;box-shadow:0 6px 18px rgba(120,40,160,.3);background:#2a1d40;line-height:0}
+#scene{width:100%;height:auto;aspect-ratio:960/600;display:block;touch-action:manipulation}
+#caption{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);background:rgba(30,10,50,.78);color:#fff;padding:6px 12px;border-radius:12px;font-size:.85em;line-height:1.3;opacity:0;transition:opacity .3s;pointer-events:none;max-width:90%;text-align:center}
+#caption.on{opacity:1}
+#ctrl{grid-area:ctrl;display:flex;flex-direction:column;gap:6px}
+.panel{background:rgba(255,255,255,.85);border-radius:14px;padding:6px;box-shadow:0 2px 8px rgba(120,40,160,.15)}
+#ztabs,#places,#actions,#people{display:flex;flex-wrap:wrap;gap:5px}
+.tab,.pl,.act,.pp{min-height:44px;border:0;border-radius:12px;padding:6px 10px;font-size:.92em;cursor:pointer;color:var(--ink);background:var(--violet2)}
+.tab.on{background:var(--violet);color:#fff;font-weight:700}
+.pl.here{background:var(--pink);color:#fff;font-weight:700}.pl.lock{opacity:.6}
+.act{background:linear-gradient(180deg,#fff,#ffe6f3);border:2px solid #ffc2df}.act small{opacity:.7}
+.act.off{opacity:.5;border-style:dashed}
+.pp{background:#fff3c4}.lbl{align-self:center;font-weight:700;font-size:.9em}
+#toast{position:fixed;left:50%;top:10px;transform:translate(-50%,-140%);background:#3a2350;color:#fff;padding:10px 16px;border-radius:14px;z-index:50;transition:transform .3s;max-width:92vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+#toast.on{transform:translate(-50%,0)}
+#modal{position:fixed;inset:0;background:rgba(40,15,60,.55);display:none;align-items:center;justify-content:center;z-index:40;padding:10px}
+#modal.on{display:flex}
+.mbox{background:var(--bg);border-radius:20px;width:min(720px,100%);max-height:92vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.4);border:3px solid #ffc2df}
+.mhead{display:flex;align-items:center;gap:8px;padding:10px 12px;background:linear-gradient(90deg,#8e44d6,#ff6fa8);color:#fff;border-radius:16px 16px 0 0}
+#mtitle{flex:1;font-size:1.1em;margin:0}
+#mclose{min-width:44px;min-height:44px;border:0;border-radius:12px;background:rgba(255,255,255,.25);color:#fff;font-size:1.2em;cursor:pointer}
+#mbody{padding:12px;overflow:auto;line-height:1.45}
+.mbtn{min-height:44px;border:0;border-radius:12px;padding:8px 12px;margin:3px;font-size:.95em;cursor:pointer;background:var(--violet2);color:var(--ink);text-align:left}
+.mbtn.main{background:var(--violet);color:#fff;font-weight:700}.mbtn.ghost{background:transparent;border:2px solid var(--violet2)}
+.mbtn.choice{display:block;width:100%;background:#fff;border:2px solid var(--pink)}
+.mbtn.good{background:#c8f7d4;outline:2px solid #2a9d55}.mbtn.bad{background:#ffd2d2;outline:2px solid #c0392b}
+.mbtn.sel{background:#ffe08a;outline:3px solid #e0a800}.mbtn.off{opacity:.55}.mbtn:disabled{cursor:default}
+.mbtn small{opacity:.75}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:4px}.grid1{display:grid;gap:4px}
+.row{display:flex;flex-wrap:wrap;gap:4px;align-items:center}.row.scroll{flex-wrap:nowrap;overflow-x:auto}
+.muted{opacity:.75;font-size:.9em}.q{font-weight:600}
+.fb{border-radius:12px;padding:8px 10px;margin:6px 0;background:#f1e8ff}.fb.ok{background:#dff7e6}.fb.ko{background:#ffe3e3}
+.corr{background:#fff;border-left:4px solid var(--violet);padding:8px;border-radius:8px;margin:6px 0}
+.word{font-size:2em;font-weight:800;text-align:center;color:var(--violet);letter-spacing:.02em}.word.sm{font-size:1.4em}
+.word .bad{color:#d62828;text-decoration:underline wavy}.word .good{color:#2a9d55}
+.phon{text-align:center;font-family:"Noto Sans","DejaVu Sans",sans-serif;font-size:1.1em}.tip{background:#fff3c4;border-radius:10px;padding:6px 10px}
+.stars{font-size:1.6em}
+.letter{background:linear-gradient(#fffdf6,#fff7e8);border:1px solid #e8d8b8;border-radius:10px;padding:12px;font-family:Georgia,"Times New Roman",serif;box-shadow:inset 0 0 20px rgba(200,170,120,.2)}
+.letter .sign{text-align:right;font-style:italic}.help{background:#eef6ff;border-radius:10px;padding:8px}
+.timer{font-size:1.4em;font-weight:800;text-align:center}.timer.urgent{color:#d62828}
+textarea,input[type=text]{width:100%;min-height:44px;border-radius:10px;border:2px solid #d9c2ff;padding:8px;font-size:1em;font-family:inherit;background:#fff;color:var(--ink)}
+.row input[type=text]{flex:1;width:auto}
+.crit{display:flex;align-items:center;gap:6px;min-height:44px;padding:2px 6px;background:#fff;border-radius:10px;margin:3px 0}
+.crit input{width:24px;height:24px}
+.range{display:flex;align-items:center;gap:8px;margin:6px 0}.range input{flex:1;min-height:44px}
+.prep{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-bottom:6px}
+.stage{display:flex;justify-content:center;gap:6px;flex-wrap:wrap}.portrait{width:90px;height:110px}
+.dialog{background:#fff;border-radius:14px;padding:10px;border:2px solid #ffc2df;margin:6px 0;min-height:80px}.dialog .who{color:var(--violet)}
+.album{list-style:none;padding:0;margin:0}.album li{background:#fff;border-radius:10px;padding:6px 10px;margin:4px 0}
+.pbox{background:#fff;border-radius:12px;padding:6px;margin:6px 0}
+.sw{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle;border:1px solid #0003}
+details{background:#fff;border-radius:10px;margin:4px 0;padding:4px 8px}summary{min-height:40px;line-height:40px;cursor:pointer;font-weight:600}
+h3{margin:10px 0 4px;color:var(--violet)}
+@media (orientation:landscape) and (min-width:820px){
+ #app{grid-template-columns:minmax(0,1.9fr) minmax(250px,1fr);grid-template-areas:"top top" "gauges gauges" "scene ctrl"}
+ #ctrl{max-height:calc(100vh - 120px);overflow:auto}
+}
+@media (max-width:420px){#gauges{grid-template-columns:repeat(3,1fr)}.gauge span{font-size:.72em}#t-heure{font-size:1.1em}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+</style>
+<script src="data.js" defer></script>
+<script src="lieux.js" defer></script>
+<script src="sons.js" defer></script>
+<script src="quiz.js" defer></script>
+<script src="prononciation.js" defer></script>
+<script src="lisa.js" defer></script>
+<script src="histoire.js" defer></script>
+<script src="actions.js" defer></script>
+<script src="monde.js" defer></script>
+<script src="ui.js" defer></script>
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <button type="button" class="tb" id="b-menu" aria-label="Menu">☰</button>
+    <div class="info"><span id="t-date">…</span><span id="t-heure"></span><span id="t-lieu"></span><span id="t-info"></span></div>
+    <button type="button" class="tb" id="b-lisa" aria-label="Lettres de Lisa" style="display:none">💌</button>
+    <button type="button" class="tb" id="b-story" aria-label="Épisodes à vivre">📖</button>
+    <button type="button" class="tb" id="b-stats" aria-label="Compétences et liens">⭐</button>
+    <button type="button" class="tb" id="b-mute" aria-label="Couper le son">🔊</button>
+  </header>
+  <section id="gauges" aria-label="Jauges de Lyham"></section>
+  <div id="scenewrap"><canvas id="scene" width="960" height="600" aria-label="Scène du jeu : touche le sol pour déplacer Lyham, touche une bulle pour agir"></canvas><div id="caption" role="status" aria-live="polite"></div></div>
+  <section id="ctrl">
+    <div class="panel"><div id="ztabs" role="tablist"></div><div id="places" style="margin-top:5px"></div></div>
+    <div class="panel"><div id="actions"></div></div>
+    <div class="panel"><div id="people"></div></div>
+  </section>
+</div>
+<div id="toast" role="status" aria-live="assertive"></div>
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="mtitle"><div class="mbox"><div class="mhead"><h2 id="mtitle"></h2><button type="button" id="mclose" aria-label="Fermer">✕</button></div><div id="mbody"></div></div></div>
+</body>
+</html>

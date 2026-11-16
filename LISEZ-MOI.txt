@@ -1,0 +1,130 @@
+LYHAM LIFE — Guide pas à pas pour obtenir l'application Android (APK)
+=====================================================================
+
+Ce dossier contient le jeu « Lyham Life » complet. GitHub va le transformer
+automatiquement en application Android (fichier .apk). Aucune installation
+n'est nécessaire sur ton ordinateur : tout se fait dans le navigateur.
+
+Il te faut seulement : un ordinateur, un compte GitHub gratuit, et ton téléphone Android.
+
+
+ÉTAPE 1 — Créer un compte GitHub (une seule fois)
+-------------------------------------------------
+1. Va sur https://github.com et clique sur « Sign up ».
+2. Saisis une adresse e-mail, un mot de passe et un nom d'utilisateur.
+3. Valide ton adresse e-mail avec le code reçu.
+
+
+ÉTAPE 2 — Créer un dépôt (le « dossier » du projet sur GitHub)
+--------------------------------------------------------------
+1. Une fois connecté, clique sur le « + » en haut à droite, puis « New repository ».
+2. Repository name : LyhamLife
+3. Coche « Public » (ou « Private », les deux fonctionnent).
+4. Ne coche RIEN d'autre (pas de README, pas de .gitignore).
+5. Clique sur le bouton vert « Create repository ».
+
+
+ÉTAPE 3 — Envoyer les fichiers du jeu
+-------------------------------------
+1. Sur ton ordinateur, décompresse LyhamLife_GitHub.zip
+   (clic droit > « Extraire tout… »). Tu obtiens un dossier avec, entre autres,
+   un dossier « app », un dossier « .github », un dossier « tests » et des fichiers
+   comme « settings.gradle ».
+   ATTENTION : le dossier « .github » peut être invisible sur ton ordinateur.
+   Windows : Explorateur > Affichage > cocher « Éléments masqués ».
+   Mac : dans le Finder, appuie sur Cmd + Maj + . (point).
+2. Sur la page de ton dépôt GitHub, clique sur le lien « uploading an existing file ».
+3. Ouvre le dossier décompressé, sélectionne TOUT son contenu
+   (Ctrl + A sur Windows, Cmd + A sur Mac) — y compris le dossier « .github » —
+   et fais-le glisser dans la zone de la page GitHub.
+   Important : glisse le CONTENU du dossier, pas le dossier lui-même.
+4. Attends que la liste des fichiers s'affiche, puis clique sur le bouton vert
+   « Commit changes » en bas de la page.
+
+Vérification : à la racine du dépôt, tu dois voir : .github, app, tests,
+build.gradle, gradle.properties, settings.gradle, LISEZ-MOI.txt, RAPPORT_TESTS.md.
+Si « .github » manque, voir « Problèmes fréquents » plus bas.
+
+
+ÉTAPE 4 — Laisser GitHub fabriquer l'APK (automatique)
+------------------------------------------------------
+1. Clique sur l'onglet « Actions » en haut de ton dépôt.
+2. Si GitHub te le demande, clique sur le bouton vert
+   « I understand my workflows, go ahead and enable them ».
+3. Tu vois une ligne « Build APK » avec un rond jaune qui tourne : la fabrication
+   est en cours. Elle dure environ 3 à 6 minutes.
+   (Si rien ne démarre : clique sur « Build APK » à gauche, puis sur
+   « Run workflow » > bouton vert « Run workflow ».)
+4. Quand le rond devient une coche verte ✔, c'est prêt.
+
+
+ÉTAPE 5 — Télécharger l'APK
+---------------------------
+1. Clique sur la ligne « Build APK » terminée (coche verte).
+2. Descends tout en bas de la page jusqu'à la section « Artifacts ».
+3. Clique sur « LyhamVie-apk » : un fichier LyhamVie-apk.zip se télécharge.
+4. Décompresse-le : il contient « app-debug.apk ».
+
+
+ÉTAPE 6 — Installer le jeu sur le téléphone Android
+---------------------------------------------------
+1. Envoie « app-debug.apk » sur ton téléphone (câble USB, Google Drive,
+   ou e-mail à toi-même).
+2. Sur le téléphone, touche le fichier app-debug.apk.
+3. Android demande d'autoriser l'installation d'applications « de sources
+   inconnues » : touche « Paramètres », active l'autorisation pour l'application
+   utilisée (Fichiers, Drive ou Gmail), puis reviens en arrière.
+4. Touche « Installer ». L'icône « Lyham Life » (le visage de Lyham) apparaît.
+5. Il est possible que Google Play Protect affiche un avertissement, car
+   l'application n'est pas publiée sur le Play Store : touche « Installer quand même ».
+
+Android 7.0 minimum. Le jeu fonctionne hors connexion.
+
+
+À PROPOS DU MICROPHONE
+----------------------
+Le micro sert UNIQUEMENT aux exercices de prononciation anglaise :
+- il n'est demandé qu'au premier exercice où tu touches « 🎤 Répéter » ;
+- il ne s'active que lorsque tu touches « Répéter » et s'arrête juste après ;
+- rien n'est enregistré ni envoyé : le téléphone transforme ta voix en texte
+  pour comparer avec le modèle, puis c'est terminé.
+Si tu refuses le micro, ce n'est pas grave : le jeu passe en « auto-évaluation »
+(tu écoutes, tu répètes à voix haute, puis tu choisis Facile / Moyen / Difficile).
+Pour la reconnaissance vocale, certains téléphones demandent l'application Google
+et le pack de langue « English (UK) » ; pour la voix anglaise, le moteur de
+synthèse vocale du téléphone (Paramètres > Accessibilité > Synthèse vocale).
+
+
+COMMENT JOUER (résumé)
+----------------------
+- Touche le sol pour faire marcher Lyham.
+- Touche une bulle au-dessus d'un objet pour faire une action (ou utilise les
+  boutons sous la scène).
+- Touche un personnage pour discuter, faire un câlin, danser, faire un selfie…
+- Les jauges (faim, énergie, amusement, social, hygiène) baissent avec le temps.
+- Le jeu se sauvegarde tout seul (toutes les 15 secondes, à chaque changement de
+  lieu et au coucher). « Nouvelle partie » se trouve dans ☰ > Réglages.
+- 🔊 / 🔇 en haut à droite coupe ou remet le son.
+
+
+PROBLÈMES FRÉQUENTS
+-------------------
+- « La croix rouge ✖ apparaît dans Actions » : clique sur la ligne en échec pour
+  lire le message. Le plus souvent, un fichier manque : vérifie que la racine du
+  dépôt contient bien « .github », « app », « settings.gradle »… puis relance
+  avec « Run workflow ».
+- « Le dossier .github n'a pas été envoyé » : affiche les éléments masqués (voir
+  étape 3), ou crée-le à la main sur GitHub : « Add file » > « Create new file »,
+  nom : .github/workflows/build.yml, puis colle le contenu du fichier build.yml
+  fourni dans le zip, et « Commit changes ».
+- « Je ne vois pas Artifacts » : la fabrication n'est pas terminée ou a échoué ;
+  attends la coche verte.
+- « Application non installée » : désinstalle d'abord une ancienne version de
+  Lyham Life, puis réessaie.
+
+
+METTRE À JOUR LE JEU PLUS TARD
+------------------------------
+Pour une nouvelle version, augmente versionCode et versionName dans
+app/build.gradle, renvoie les fichiers modifiés sur GitHub (« Add file » >
+« Upload files »), puis récupère le nouvel APK dans Actions > Artifacts.
